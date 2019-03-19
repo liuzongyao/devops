@@ -1,0 +1,19 @@
+{{- if and .Values.portal.persistence.enabled (not .Values.portal.persistence.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "gitlab.fullname" . }}
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+    component: gitlab
+  annotations:
+  {{- if .Values.portal.persistence.storageClass }}
+    volume.beta.kubernetes.io/storage-class: {{ .Values.portal.persistence.storageClass | quote }}
+  {{- end }}
+spec:
+  accessModes: 
+    - {{ .Values.portal.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.portal.persistence.size }}
+{{- end }}

@@ -1,0 +1,19 @@
+{{- if and .Values.registry.persistence.enabled (not .Values.registry.persistence.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "harbor.fullname" . }}-registry
+  labels:
+{{ include "harbor.labels" . | indent 4 }}
+    component: registry
+  annotations:
+  {{- if .Values.registry.persistence.storageClass }}
+    volume.beta.kubernetes.io/storage-class: {{ .Values.registry.persistence.storageClass | quote }}
+  {{- end }}
+spec:
+  accessModes: 
+    - {{ .Values.registry.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.registry.persistence.size }}
+{{- end }}

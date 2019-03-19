@@ -1,0 +1,34 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ template "harbor.portal" . }}"
+  labels:
+{{ include "harbor.labels" . | indent 4 }}
+    component: portal
+spec:
+  replicas: {{ .Values.portal.replicas }}
+  selector:
+    matchLabels:
+{{ include "harbor.matchLabels" . | indent 6 }}
+      component: portal
+  template:
+    metadata:
+      labels:
+{{ include "harbor.matchLabels" . | indent 8 }}
+        component: portal
+    spec:
+      containers:
+      - name: portal
+        image: {{ template "portal.image" . }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: 80
+{{ include "portal.nodeSelector" . | indent 6 }}
+    {{- with .Values.portal.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.portal.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}

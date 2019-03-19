@@ -1,0 +1,21 @@
+{{- if .Values.database.useInternal -}}
+{{- if and .Values.database.persistence.enabled (not .Values.database.persistence.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "gitlab.fullname" . }}-database
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+    component: database
+  annotations:
+  {{- if .Values.database.persistence.storageClass }}
+    volume.beta.kubernetes.io/storage-class: {{ .Values.database.persistence.storageClass | quote }}
+  {{- end }}
+spec:
+  accessModes: 
+    - {{ .Values.database.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.database.persistence.size }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+{{- if .Values.ingress.annotations }}
+  annotations:
+{{ toYaml .Values.ingress.annotations | indent 4 }}
+{{- end }}
+  name: {{ template "gitlab.fullname" . }}
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+spec:
+  rules:
+  - host: {{ .Values.ingress.hosts.portal }}
+    {{- if .Values.ingress.tls.enabled }}
+    https:
+      paths:
+      - path: /
+        backend:
+          serviceName: {{ template "gitlab.fullname" . }}
+          servicePort: {{ .Values.service.ports.https.port }}
+    {{- else }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: {{ template "gitlab.fullname" . }}
+          servicePort: {{ .Values.service.ports.http.port }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,197 @@
+Master:
+  Name: jenkins-master
+  ImagePullPolicy: Always
+  Component: jenkins-master
+  UseSecurity: true
+  HostNetworking: false
+  AdminUser: admin
+  AdminPassword: Jenkins12345
+  resources:
+    requests:
+      cpu: 500m
+      memory: 256Mi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  JavaOpts: ""
+  JenkinsOpts: ""
+  JenkinsUriPrefix: ""
+  UsePodSecurityContext: true
+  RunAsUser: 0
+  FsGroup: 0
+  ServicePort: 8080
+  ServiceType: ClusterIP
+  NodePort: 32000
+  ServiceAnnotations: {}
+  HealthProbes: true
+  HealthProbesLivenessTimeout: 90
+  HealthProbesReadinessTimeout: 60
+  HealthProbeLivenessFailureThreshold: 12
+  SlaveListenerPort: 50000
+  DisabledAgentProtocols:
+  - JNLP-connect
+  - JNLP2-connect
+  CSRF:
+    DefaultCrumbIssuer:
+      Enabled: true
+      ProxyCompatability: true
+  CLI: false
+  SlaveListenerServiceType: ClusterIP
+  SlaveListenerServiceAnnotations: {}
+  InitScripts: {}
+  CustomConfigMap: false
+  OverwriteConfig: false
+  PodAnnotations: {}
+  Ingress:
+    ApiVersion: extensions/v1beta1
+    Annotations:
+      ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      kubernetes.io/ingress.class: nginx
+    TLS: []
+Agent:
+  Enabled: true
+  Privileged: false
+  AlwaysPullImage: false
+  PodRetention: never
+  MaxRequestsPerHost: "32"
+  ContainerCap: ""
+  InstanceCap: 10
+  DockerHostPath: /var/run/docker.sock
+  Jnlp:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  Tools:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1G
+  Java:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 750M
+      limits:
+        cpu: "1"
+        memory: 2500M
+  Golang:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 750M
+      limits:
+        cpu: "1"
+        memory: 1500M
+  Nodejs:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 750M
+      limits:
+        cpu: "1"
+        memory: 1500M
+  Python:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 750M
+      limits:
+        cpu: "1"
+        memory: 1500M
+  NodeSelector: ""
+Persistence:
+  Enabled: true
+  ExistingClaim: ""
+  StorageClass: ""
+  Annotations: {}
+  AccessMode: ReadWriteOnce
+  Size: 10Gi
+  Host:
+    NodeName: ""
+    Path: ""
+NetworkPolicy:
+  Enabled: false
+  ApiVersion: extensions/v1beta1
+AlaudaACP:
+  Enabled: true
+  SharedNamespace: global-credentials
+  WatcherAliveCheck: 5
+AlaudaDevopsClient:
+  Clusters: null
+rbac:
+  install: true
+  serviceAccountName: default
+  apiVersion: v1
+  roleRef: cluster-admin
+  roleBindingKind: ClusterRoleBinding
+global:
+  registry:
+    address: index.alauda.cn
+  images:
+    jenkins:
+      repository: alaudaorg/alauda-jenkins
+      tag: 2.150.3-v0.1.15
+    slave:
+      repository: alaudaorg/jnlp-slave
+      tag: v0.1.15
+    plugins:
+      repository: alaudaorg/jenkins-plugins
+      tag: v0.1.15
+    toolsUbuntu:
+      repository: alaudaorg/builder-tools
+      tag: ubuntu-v0.1.2
+    toolsAlpine:
+      repository: alaudaorg/builder-tools
+      tag: alpine-v0.1.2
+    golang10ubuntu:
+      repository: alaudaorg/builder-go
+      tag: 1.10-ubuntu-v0.1.6
+    golang11ubuntu:
+      repository: alaudaorg/builder-go
+      tag: 1.11-ubuntu-v0.1.6
+    golang10Alpine:
+      repository: alaudaorg/builder-go
+      tag: 1.10-alpine-v0.1.6
+    golang11Alpine:
+      repository: alaudaorg/builder-go
+      tag: 1.11-alpine-v0.1.6
+    javaOpenjdk8:
+      repository: alaudaorg/builder-java
+      tag: openjdk8-v0.1.1
+    javaOpenjdk8Alpine:
+      repository: alaudaorg/builder-java
+      tag: openjdk8-alpine-v0.1.1
+    nodejs10Debian:
+      repository: alaudaorg/builder-nodejs
+      tag: 10-stretch-v0.1.2
+    nodejs10Alpine:
+      repository: alaudaorg/builder-nodejs
+      tag: 10-alpine-v0.1.2
+    python27Ubuntu:
+      repository: alaudaorg/builder-python
+      tag: 2.7-v0.1.2
+    python37Ubuntu:
+      repository: alaudaorg/builder-python
+      tag: 3.7-v0.1.2
+    python36Ubuntu:
+      repository: alaudaorg/builder-python
+      tag: 3.6-v0.1.2
+    python27Alpine:
+      repository: alaudaorg/builder-python
+      tag: 2.7-alpine-v0.1.2
+    python37Alpine:
+      repository: alaudaorg/builder-python
+      tag: 3.7-alpine-v0.1.2
+    python36Alpine:
+      repository: alaudaorg/builder-python
+      tag: 3.6-alpine-v0.1.2

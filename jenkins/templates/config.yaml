@@ -1,0 +1,472 @@
+{{- if not .Values.Master.CustomConfigMap }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "jenkins.fullname" . }}
+data:
+  config.xml: |-
+    <?xml version='1.0' encoding='UTF-8'?>
+    <hudson>
+      <disabledAdministrativeMonitors/>
+      <version>{{ template "jenkins.version" . }}</version>
+      <numExecutors>0</numExecutors>
+      <mode>NORMAL</mode>
+      <useSecurity>{{ .Values.Master.UseSecurity }}</useSecurity>
+      <authorizationStrategy class="hudson.security.FullControlOnceLoggedInAuthorizationStrategy">
+        <denyAnonymousReadAccess>true</denyAnonymousReadAccess>
+      </authorizationStrategy>
+      <securityRealm class="hudson.security.LegacySecurityRealm"/>
+      <disableRememberMe>false</disableRememberMe>
+      <projectNamingStrategy class="jenkins.model.ProjectNamingStrategy$DefaultProjectNamingStrategy"/>
+      <workspaceDir>${JENKINS_HOME}/workspace/${ITEM_FULLNAME}</workspaceDir>
+      <buildsDir>${ITEM_ROOTDIR}/builds</buildsDir>
+      <markupFormatter class="hudson.markup.EscapedMarkupFormatter"/>
+      <jdks/>
+      <viewsTabBar class="hudson.views.DefaultViewsTabBar"/>
+      <myViewsTabBar class="hudson.views.DefaultMyViewsTabBar"/>
+      <clouds></clouds>
+      <quietPeriod>5</quietPeriod>
+      <scmCheckoutRetryCount>0</scmCheckoutRetryCount>
+      <views>
+        <hudson.model.AllView>
+          <owner class="hudson" reference="../../.."/>
+          <name>All</name>
+          <filterExecutors>false</filterExecutors>
+          <filterQueue>false</filterQueue>
+          <properties class="hudson.model.View$PropertyList"/>
+        </hudson.model.AllView>
+      </views>
+      <primaryView>All</primaryView>
+      <slaveAgentPort>50000</slaveAgentPort>
+      <disabledAgentProtocols>
+{{- range .Values.Master.DisabledAgentProtocols }}
+        <string>{{ . }}</string>
+{{- end }}
+      </disabledAgentProtocols>
+      <label></label>
+{{- if .Values.Master.CSRF.DefaultCrumbIssuer.Enabled }}
+      <crumbIssuer class="hudson.security.csrf.DefaultCrumbIssuer">
+{{- if .Values.Master.CSRF.DefaultCrumbIssuer.ProxyCompatability }}
+        <excludeClientIPFromCrumb>true</excludeClientIPFromCrumb>
+{{- end }}
+      </crumbIssuer>
+{{- end }}
+      <nodeProperties/>
+      <globalNodeProperties/>
+      <noUsageStatistics>true</noUsageStatistics>
+    </hudson>
+{{- if .Values.Master.ScriptApproval }}
+  scriptapproval.xml: |-
+    <?xml version='1.0' encoding='UTF-8'?>
+    <scriptApproval plugin="script-security@1.27">
+      <approvedScriptHashes/>
+      <approvedSignatures>
+{{- range $key, $val := .Values.Master.ScriptApproval }}
+        <string>{{ $val }}</string>
+{{- end }}
+      </approvedSignatures>
+      <aclApprovedSignatures/>
+      <approvedClasspathEntries/>
+      <pendingScripts/>
+      <pendingSignatures/>
+      <pendingClasspathEntries/>
+    </scriptApproval>
+{{- end }}
+  jenkins.model.JenkinsLocationConfiguration.xml: |-
+    <?xml version='1.1' encoding='UTF-8'?>
+    <jenkins.model.JenkinsLocationConfiguration>
+      <adminAddress>{{ default "" .Values.Master.JenkinsAdminEmail }}</adminAddress>
+{{- if .Values.Master.HostName }}
+{{- if .Values.Master.Ingress.TLS }}
+      <jenkinsUrl>https://{{ .Values.Master.HostName }}{{ default "" .Values.Master.JenkinsUriPrefix }}</jenkinsUrl>
+{{- else }}
+      <jenkinsUrl>http://{{ .Values.Master.HostName }}{{ default "" .Values.Master.JenkinsUriPrefix }}</jenkinsUrl>
+{{- end }}
+{{- else }}
+      <jenkinsUrl>http://{{ template "jenkins.fullname" . }}:{{.Values.Master.ServicePort}}{{ default "" .Values.Master.JenkinsUriPrefix }}</jenkinsUrl>
+{{- end}}
+    </jenkins.model.JenkinsLocationConfiguration>
+  jenkins.CLI.xml: |-
+    <?xml version='1.1' encoding='UTF-8'?>
+    <jenkins.CLI>
+{{- if .Values.Master.CLI }}
+      <enabled>true</enabled>
+{{- else }}
+      <enabled>false</enabled>
+{{- end }}
+    </jenkins.CLI>
+  jenkins.yaml: |-
+    configuration-as-code:
+      deprecated: warn
+      restricted: warn
+      unknown: warn
+    plugins:
+      sites:
+      - id: "default"
+        url: http://updates.jenkins-ci.org/update-center.json
+    tool:
+      git:
+        installations:
+        - home: "git"
+          name: "Default"
+    security:
+      remotingCLI:
+        enabled: false
+    jenkins:
+      agentProtocols:
+      - "JNLP4-connect"
+      - "Ping"
+      authorizationStrategy:
+        loggedInUsersCanDoAnything:
+          allowAnonymousRead: false
+      disableRememberMe: false
+      labelString: master
+      mode: NORMAL
+      numExecutors: 0
+      primaryView:
+        all:
+          name: "all"
+      quietPeriod: 5
+      scmCheckoutRetryCount: 0
+      slaveAgentPort: 50000
+      views:
+      - all:
+          name: "all"
+      clouds:
+      - kubernetes:
+          name: kubernetes
+          jenkinsTunnel: {{ template "jenkins.fullname" . }}-agent.{{.Release.Namespace}}:{{.Values.Master.SlaveListenerPort}}
+          jenkinsUrl: http://{{ template "jenkins.fullname" . }}.{{.Release.Namespace}}:{{.Values.Master.ServicePort}}
+          maxRequestsPerHostStr: {{ .Values.Agent.MaxRequestsPerHost | default "32" | quote }}
+          namespace: {{.Release.Namespace}}
+          serverUrl: https://kubernetes.default
+          podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+          containerCapStr: {{ .Values.Agent.ContainerCap | default "" | quote}}
+{{- if .Values.Agent.Enabled }}
+          templates:
+          - name: base
+{{- if .Values.Agent.NodeSelector }}
+            nodeSelector: {{.Values.Agent.NodeSelector | quote}}
+{{- end }}
+{{- if .Values.rbac.install }}
+{{- $serviceName := include "jenkins.fullname" . }}
+            serviceAccount: {{ $serviceName }}
+{{- end }}
+            label: tools base
+            nodeUsageMode: NORMAL
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            containers:
+            - name: jnlp
+              args: "^${computer.jnlpmac} ^${computer.name}"
+              command: ""
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.slave.repository }}:{{ .Values.global.images.slave.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              #resourceLimitCpu: {{ .Values.Agent.Jnlp.resources.limits.cpu | default "500m" }}
+              #resourceLimitMemory: {{ .Values.Agent.Jnlp.resources.limits.memory | default "512Mi" }}
+              resourceRequestCpu: {{ .Values.Agent.Jnlp.resources.requests.cpu | default "200m" }}
+              resourceRequestMemory: {{ .Values.Agent.Jnlp.resources.requests.memory | default "256Mi" }}
+              privileged: {{ .Values.Agent.Privileged | default false }}
+            - name: tools
+              args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.toolsUbuntu.repository }}:{{ .Values.global.images.toolsUbuntu.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              #resourceLimitCpu: {{ .Values.Agent.Tools.resources.limits.cpu | default "750m" }}
+              #resourceLimitMemory: {{ .Values.Agent.Tools.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Tools.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Tools.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            envVars:
+            - envVar:
+                key: JENKINS_URL
+                value: http://{{ template "jenkins.fullname" . }}.{{.Release.Namespace}}:8080
+            volumes:
+{{- if .Values.Agent.DockerHostPath }}
+            - hostPathVolume:
+                hostPath: {{ .Values.Agent.DockerHostPath }}
+                mountPath: /var/run/docker.sock
+{{- end }}
+            - emptyDirVolume:
+                memory: false
+                mountPath: /tmp
+            workspaceVolume:
+              emptyDirWorkspaceVolume:
+                memory: false
+          - name: java
+            label: java java-openjdk8 maven maven3.5
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            nodeUsageMode: NORMAL
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            containers:
+            - name: java
+              args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.javaOpenjdk8.repository }}:{{ .Values.global.images.javaOpenjdk8.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              resourceLimitCpu: {{ .Values.Agent.Java.resources.limits.cpu | default "750m" }}
+              resourceLimitMemory: {{ .Values.Agent.Java.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Java.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Java.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            inheritFrom: base
+          - name: golang
+            label: go golang golang-1.10
+            containers:
+            - name: golang
+              args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.golang10ubuntu.repository }}:{{ .Values.global.images.golang10ubuntu.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              resourceLimitCpu: {{ .Values.Agent.Golang.resources.limits.cpu | default "750m" }}
+              resourceLimitMemory: {{ .Values.Agent.Golang.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Golang.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Golang.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            inheritFrom: base
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            nodeUsageMode: NORMAL
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            workspaceVolume:
+              emptyDirWorkspaceVolume:
+                memory: false
+          - name: nodejs
+            label: node nodejs nodejs-10
+            containers:
+            - args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.nodejs10Debian.repository }}:{{ .Values.global.images.nodejs10Debian.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              name: nodejs
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              resourceLimitCpu: {{ .Values.Agent.Nodejs.resources.limits.cpu | default "750m" }}
+              resourceLimitMemory: {{ .Values.Agent.Nodejs.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Nodejs.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Nodejs.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            inheritFrom: base
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            nodeUsageMode: NORMAL
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            workspaceVolume:
+              emptyDirWorkspaceVolume:
+                memory: false
+          - name: python2.7
+            label: python python-2.7
+            containers:
+            - args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.python27Ubuntu.repository }}:{{ .Values.global.images.python27Ubuntu.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              name: python
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              resourceLimitCpu: {{ .Values.Agent.Python.resources.limits.cpu | default "750m" }}
+              resourceLimitMemory: {{ .Values.Agent.Python.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Python.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Python.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            inheritFrom: base
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            nodeUsageMode: NORMAL
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            workspaceVolume:
+              emptyDirWorkspaceVolume:
+                memory: false
+          - name: python3.7
+            label: python python-3.6
+            containers:
+            - args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.python36Ubuntu.repository }}:{{ .Values.global.images.python36Ubuntu.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              name: python
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              resourceLimitCpu: {{ .Values.Agent.Python.resources.limits.cpu | default "750m" }}
+              resourceLimitMemory: {{ .Values.Agent.Python.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Python.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Python.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            inheritFrom: base
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            nodeUsageMode: NORMAL
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            workspaceVolume:
+              emptyDirWorkspaceVolume:
+                memory: false
+          - name: python3.7
+            label: python python-3.7
+            containers:
+            - args: cat
+              command: /bin/sh -c
+              image: {{ .Values.global.registry.address }}/{{ .Values.global.images.python37Ubuntu.repository }}:{{ .Values.global.images.python37Ubuntu.tag }}
+              livenessProbe:
+                failureThreshold: 0
+                initialDelaySeconds: 0
+                periodSeconds: 0
+                successThreshold: 0
+                timeoutSeconds: 0
+              name: python
+              alwaysPullImage: {{ .Values.Agent.AlwaysPullImage | default false }}
+              resourceLimitCpu: {{ .Values.Agent.Python.resources.limits.cpu | default "750m" }}
+              resourceLimitMemory: {{ .Values.Agent.Python.resources.limits.memory | default "1G" }}
+              resourceRequestCpu: {{ .Values.Agent.Python.resources.requests.cpu | default "500m" }}
+              resourceRequestMemory: {{ .Values.Agent.Python.resources.requests.memory | default "512Mi" }}
+              privileged: {{ .Values.Agent.Privileged }}
+              ttyEnabled: true
+            inheritFrom: base
+            podRetention: {{ .Values.Agent.PodRetention | default "never" }}
+            nodeUsageMode: NORMAL
+            instanceCapStr: {{ .Values.Agent.InstanceCap | quote }}
+            workspaceVolume:
+              emptyDirWorkspaceVolume:
+                memory: false
+{{- end }}
+    unclassified:
+      alaudaSync:
+        enabled: {{ .Values.AlaudaACP.Enabled | default true }}
+{{- if .Values.AlaudaACP.Enabled }}
+        jenkinsService: {{ template "jenkins.fullname" . }}
+        sharedNamespace: {{ .Values.AlaudaACP.SharedNamespace }}
+        watcherAliveCheck: {{ .Values.AlaudaACP.WatcherAliveCheck }}
+{{- end }}
+{{- if .Values.AlaudaDevopsClient.Clusters }}
+      alaudaDevOpsClientConfiguration:
+        clusterConfigs:
+{{- range .Values.AlaudaDevopsClient.Clusters }}
+        - name: {{ .name }}
+          serverUrl: {{ .serverUrl }}
+          credentialsId: {{ .credentialsId }}
+          skipTlsVerify: {{ .skipTlsVerify | default true}}
+          serverCertificateAuthority: {{ .serverCertificateAuthority}}
+          defaultProject: {{ .defaultProject | default "default"}}
+{{- end }}
+{{- end }}
+  apply_config2.sh: |-
+    export JENKINS_HOME=/var/jenkins_home
+    mkdir -p /usr/share/jenkins/ref/secrets/;
+    # mkdir -p /var/jenkins_home/update-center-rootCAs
+    mkdir -p /var/jenkins_home/plugins
+    mkdir -p /var/jenkins_home/casc_config
+    mkdir -p /var/jenkins_home/casc_config_bkp
+    echo "false" > /usr/share/jenkins/ref/secrets/slave-to-master-security-kill-switch;
+    # copying CASC file to root path
+    cp /var/jenkins_config/jenkins.yaml /jenkins.yaml 
+    # cp /config/update-center.crt /var/jenkins_home/update-center-rootCAs/
+{{- if .Values.Master.OverwriteConfig }}
+    echo "Will overwrite all configurations ..."
+    cp /var/jenkins_config/config.xml /var/jenkins_home;
+    cp /var/jenkins_config/jenkins.CLI.xml /var/jenkins_home;
+    cp /var/jenkins_config/jenkins.model.JenkinsLocationConfiguration.xml /var/jenkins_home;
+    cp /var/jenkins_config/jenkins.yaml /var/jenkins_home/casc_config;
+{{- else }}
+    echo "Checking configurations ..."
+    if [ ! -f /var/jenkins_home/config.xml ]; then
+      echo "Copying init config.xml..."
+      cp /var/jenkins_config/config.xml /var/jenkins_home;
+    else
+      echo "Config.xml already exists. Skipping..."
+    fi
+    if [ ! -f /var/jenkins_home/jenkins.CLI.xml ]; then
+      echo "Copying init jenkins.CLI.xml..."
+      cp /var/jenkins_config/jenkins.CLI.xml /var/jenkins_home;
+    else
+      echo "jenkins.CLI.xml already exists. Skipping..."
+    fi
+    if [ ! -f /var/jenkins_home/jenkins.model.JenkinsLocationConfiguration.xml ]; then
+      echo "Copying init jenkins.model.JenkinsLocationConfiguration.xml..."
+      cp /var/jenkins_config/jenkins.model.JenkinsLocationConfiguration.xml /var/jenkins_home;
+    else
+      echo "jenkins.model.JenkinsLocationConfiguration.xml already exists. Skipping..."
+    fi
+    if [ ! -f /var/jenkins_home/casc_config_bkp/jenkins.yaml ]; then
+      echo "Copying default Configuration as Code configuration..."
+      echo "this is first install" > /var/jenkins_home/install.step.txt
+      cp /jenkins.yaml /var/jenkins_home/casc_config/jenkins.yaml
+      cp /jenkins.yaml /var/jenkins_home/casc_config_bkp/jenkins.yaml
+    else
+      echo "Jenkins already configured..."
+      if [ -f /var/jenkins_home/casc_config/jenkins.yaml ]; then
+        echo "Will remove Configuration as Code yaml..."
+        # remove configuration to prevent reset of manually added configuration
+        echo "should have removed the configuration to backup folder" > /var/jenkins_home/install.step.txt
+        mv /var/jenkins_home/casc_config/jenkins.yaml /var/jenkins_home/casc_config_bkp/jenkins.yaml
+      else
+        echo "Jenkins configuration should not be touched. Skipping..."
+      fi
+    fi
+{{- end }}
+    echo "Will verify and install plugins..."
+    /usr/local/bin/install-plugins-from-disk.sh /content
+
+{{- if .Values.Master.ScriptApproval }}
+    cp -n /var/jenkins_config/scriptapproval.xml /var/jenkins_home/scriptApproval.xml;
+{{- end }}
+{{- if .Values.Master.InitScripts }}
+    mkdir -p /var/jenkins_home/init.groovy.d/;
+    cp -n /var/jenkins_config/*.groovy /var/jenkins_home/init.groovy.d/
+{{- end }}
+{{- if .Values.Master.CredentialsXmlSecret }}
+    cp -n /var/jenkins_credentials/credentials.xml /var/jenkins_home;
+{{- end }}
+{{- if .Values.Master.SecretsFilesSecret }}
+    cp -n /var/jenkins_secrets/* /usr/share/jenkins/ref/secrets;
+{{- end }}
+{{- if .Values.Master.Jobs }}
+    for job in $(ls /var/jenkins_jobs); do
+      mkdir -p /var/jenkins_home/jobs/$job
+      cp -n /var/jenkins_jobs/$job /var/jenkins_home/jobs/$job/config.xml
+    done
+{{- end }}
+{{- range $key, $val := .Values.Master.InitScripts }}
+  init{{ $key }}.groovy: |-
+{{ $val | indent 4 }}
+{{- end }}
+{{ else }}
+{{ include "override_config_map" . }}
+{{- end -}}

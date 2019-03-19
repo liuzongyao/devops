@@ -1,0 +1,410 @@
+global:
+  registry:
+    address: index.alauda.cn
+  images:
+    portal:
+      repository: alaudak8s/harbor-portal
+      tag: "v1.6.0"
+    core:
+      repository: alaudak8s/harbor-core
+      tag: "v1.6.0"
+    adminserver:
+      repository: alaudak8s/harbor-adminserver
+      tag: "v1.6.0"
+    jobservice:
+      repository: alaudak8s/harbor-jobservice
+      tag: "v1.6.0"
+    registryRegistry:
+      repository: alaudak8s/harbor-registry-registry
+      tag: "v1.6.0"
+    registryController:
+      repository: alaudak8s/harbor-registry-controller
+      tag: "v1.6.0"
+    chartmuseum:
+      repository: alaudak8s/harbor-chartmuseum
+      tag: "v1.6.0"
+    clair:
+      repository: alaudak8s/harbor-clair
+      tag: "v1.6.0"
+    notaryServer:
+      repository: alaudak8s/harbor-notary-server
+      tag: "v1.6.0"
+    notarySigner:
+      repository: alaudak8s/harbor-notary-signer
+      tag: "v1.6.0"
+    nginx:
+      repository: alaudak8s/harbor-nginx
+      tag: "v1.6.0"
+    db:
+      repository: alaudak8s/harbor-db
+      tag: "v1.6.0"
+    redis:
+      repository: alaudak8s/redis
+      tag: "3.2.9-r2"
+
+imagePullPolicy: IfNotPresent
+
+persistence:
+  enabled: &persistenceEnabled false
+  existingClaim: &existingClaim ""
+  storageClass: &storageClass ""
+  accessMode: &accessMode ReadWriteOnce
+  size: &size 1Gi
+  host:
+    nodeName: &nodeName ""
+nodeSelector: &nodeSelector {}
+
+AlaudaACP:
+  Enabled: true
+  Name: harbor-registry
+
+## The URL (with protocol) that your users will use to reach the install.
+externalURL: http://172.21.0.18:32001
+harborAdminPassword: Harbor12345
+
+## Ingress configuration options
+##
+ingress:
+  enabled: false
+  hosts:
+    core: core.harbor.domain
+    notary: notary.harbor.domain
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    kubernetes.io/ingress.class: nginx
+  tls:
+    enabled: false
+    # Fill in the empty string if you want to use your own TLS secret
+    secretName: &tls_secretName ""
+    # notary secret by default uses the value of secretName
+    # replace the variable reference if you want to use your own TLS secret for notary
+    notarySecretName: *tls_secretName
+
+# The secret key used for encryption. Must be a string of 16 chars.
+secretKey: not-a-secure-key
+
+# Setting ingress.enabled to false will enable the service, and
+# the nginx will be deployed as the proxy
+service:
+  name: harbor
+  # ClusterIP or NodePort
+  type: ClusterIP
+  ports:
+    # The port Harbor listens on when serving with HTTP
+    http: 
+      port: 80
+      # set it when the type of service is "NodePort"
+      nodePort: 31104
+    # The port Harbor listens on when serving with HTTPS
+    https: 
+      port: 443
+      # set it when the type of service is "NodePort"
+      nodePort: 31105
+    # The port Notary service listens on. Only needed when
+    # notary.enabled is set to true
+    notary: 
+      port: 4443
+      # set it when the type of service is "NodePort"
+      nodePort: 31106
+
+nginx:
+  image:
+    repository: goharbor/nginx-photon
+    tag: dev
+  replicas: 1
+  tls:
+    enabled: false
+    # Fill the secretName if you want to use the certificate of 
+    # yourself when Harbor serves with HTTPS. A certificate will 
+    # be generated automatically by the chart if leave it empty
+    secretName: ""
+    # The commmon name used to generate the certificate, fill it 
+    # if the secretName is null
+    commonName: ""
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+portal:
+  replicas: 1
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  nodeSelector: *nodeSelector
+  tolerations: []
+  affinity: {}
+
+adminserver:
+  replicas: 1
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  nodeSelector: *nodeSelector
+  tolerations: []
+  affinity: {}
+
+jobservice:
+  replicas: 1
+  maxWorkers: 50
+  # resources:
+  #   requests:
+  #     memory: 256Mi
+  #     cpu: 100m
+  nodeSelector: *nodeSelector
+  tolerations: []
+  affinity: {}
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: *size
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/jobservice
+
+core:
+  replicas: 1
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  nodeSelector: *nodeSelector
+  tolerations: []
+  affinity: {}
+
+database:
+  # if external database is used, set "useInternal" to "false"
+  # and fill the connection informations in "external" section.
+  # or the internal database will be used
+  useInternal: true
+  port: "5432"
+  password: "pg-pwd"
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  tolerations: []
+  affinity: {}
+  nodeSelector: *nodeSelector
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: *size
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/database 
+  external:
+    host: "192.168.0.1"
+    port: "5432"
+    username: "postgres"
+    password: "pg-pwd"
+    coreDatabase: "registry"
+    clairDatabase: "clair"
+    notaryServerDatabase: "notary_server"
+    notarySignerDatabase: "notary_signer"
+    sslmode: "disable"
+
+registry:
+  replicas: 1
+  ## Persist data to a persistent volume
+  volumes:
+    data:
+      # existingClaim: ""
+      # storageClass: "-"
+      accessMode: ReadWriteOnce
+      size: 5Gi
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  tolerations: []
+  affinity: {}
+  nodeSelector: *nodeSelector
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: *size
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/registry
+
+chartmuseum:
+  enabled: true
+  replicas: 1
+  volumes:
+    data:
+      # existingClaim: ""
+      # storageClass: "-"
+      accessMode: ReadWriteOnce
+      size: 5Gi
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  tolerations: []
+  affinity: {}
+  nodeSelector: *nodeSelector
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: *size
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/chartmuseum
+
+clair:
+  enabled: true
+  replicas: 1
+  # The interval of clair updaters, the unit is hour, 
+  # set to 0 to disable the updaters
+  updatersInterval: 12
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  nodeSelector: *nodeSelector
+  tolerations: []
+  affinity: {}
+
+redis:
+  # if external Redis is used, set "useInternal" to "false"
+  # and fill the connection informations in "external" section.
+  # or the internal Redis will be used
+  useInternal: true
+  args: []
+  port: "6379"
+  usePassword: false
+  password: "redis-pwd"
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  affinity: {}
+  tolerations: []
+  nodeSelector: *nodeSelector
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: *size
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/clair
+  external:
+    host: "192.168.0.2"
+    port: "6379"
+    usePassword: false
+    password: "redis-pwd"
+    # The "coreDatabaseIndex" must be "0" as the library Harbor
+    # used doesn't support configuring it
+    coreDatabaseIndex: "0"
+    jobserviceDatabaseIndex: "1"
+    registryDatabaseIndex: "2"
+    chartmuseumDatabaseIndex: "3"
+
+notary:
+  enabled: true
+  server:
+    replicas: 1
+  signer:
+    replicas: 1
+  nodeSelector: *nodeSelector
+  tolerations: []
+  affinity: {}
+
+# Define which storage backend is used for registry and chartmuseum.
+# Refer to https://github.com/docker/distribution/blob/master/docs/configuration.md#storage 
+# for the detail.
+storage:
+  # specify the type of storage: "filesystem", "azure", "gcs", "s3", "swift", 
+  # "oss" and fill the information needed in the corresponding section
+  type: filesystem
+  filesystem:
+    rootdirectory: /var/lib/registry
+    #maxthreads: 100
+  azure:
+    accountname: accountname
+    accountkey: base64encodedaccountkey
+    container: containername
+    #realm: core.windows.net
+  gcs:
+    bucket: bucketname
+    # TODO: support the keyfile of gcs
+    #keyfile: /path/to/keyfile
+    #rootdirectory: /gcs/object/name/prefix
+    #chunksize: 5242880
+  s3:
+    region: us-west-1
+    bucket: bucketname
+    #accesskey: awsaccesskey
+    #secretkey: awssecretkey
+    #regionendpoint: http://myobjects.local
+    #encrypt: false
+    #keyid: mykeyid
+    #secure: true
+    #v4auth: true
+    #chunksize: 5242880
+    #rootdirectory: /s3/object/name/prefix
+    #storageclass: STANDARD
+  swift:
+    authurl: https://storage.myprovider.com/v3/auth
+    username: username
+    password: password
+    container: containername
+    #region: fr
+    #tenant: tenantname
+    #tenantid: tenantid
+    #domain: domainname
+    #domainid: domainid
+    #trustid: trustid
+    #insecureskipverify: false
+    #chunksize: 5M
+    #prefix:
+    #secretkey: secretkey
+    #accesskey: accesskey
+    #authversion: 3
+    #endpointtype: public
+    #tempurlcontainerkey: false
+    #tempurlmethods:
+  oss:
+    accesskeyid: accesskeyid
+    accesskeysecret: accesskeysecret
+    region: regionname
+    bucket: bucketname
+    #endpoint: endpoint
+    #internal: false
+    #encrypt: false
+    #secure: true
+    #chunksize: 10M
+    #rootdirectory: rootdirectory

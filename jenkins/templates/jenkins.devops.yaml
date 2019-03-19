@@ -1,0 +1,18 @@
+{{- if .Values.AlaudaACP.Enabled }}
+apiVersion: devops.alauda.io/v1alpha1
+kind: Jenkins
+metadata:
+  name: {{ template "jenkins.fullname" . }}
+  labels:
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    component: "{{ .Release.Name }}-{{ .Values.Master.Name }}"
+spec:
+  http:
+{{- if .Values.Master.HostName }}
+    host: "http://{{ .Values.Master.HostName }}"
+{{- else }}
+    host: http://{{ template "jenkins.fullname" . }}.{{.Release.Namespace}}:8080
+{{- end }}
+{{- end }}

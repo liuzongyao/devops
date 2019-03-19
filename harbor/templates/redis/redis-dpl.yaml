@@ -1,0 +1,68 @@
+{{- if .Values.redis.useInternal -}}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "harbor.fullname" . }}-redis
+  labels:
+{{ include "harbor.labels" . | indent 4 }}
+    component: redis
+spec:
+  selector:
+    matchLabels:
+{{ include "harbor.matchLabels" . | indent 6 }}
+      component: redis
+  template:
+    metadata:
+      labels:
+{{ include "harbor.labels" . | indent 8 }}
+        component: redis
+    spec:
+      containers:
+      - name: {{ template "harbor.fullname" . }}
+        image: "{{ template "redis.image" . }}"
+        {{- if .Values.args }}
+        args:
+{{ toYaml .Values.redis.args | indent 10 }}
+        {{- end }}
+        env:
+        {{- if .Values.redis.usePassword }}
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "harbor.fullname" . }}-redis
+              key: redis-password
+        {{- else }}
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        {{- end }}
+        ports:
+        - name: redis
+          containerPort: 6379
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+{{ toYaml .Values.redis.resources | indent 10 }}
+        volumeMounts:
+        - name: redis-data
+          mountPath: /bitnami/redis
+      volumes:
+      - name: redis-data
+{{ include "redis.volume" . | indent 8 }}
+{{ include "redis.nodeSelector" . | indent 6 }}  
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+      {{- end }}
+{{- end }}

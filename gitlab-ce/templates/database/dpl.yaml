@@ -1,0 +1,56 @@
+{{- if .Values.database.useInternal -}}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ template "gitlab.fullname" . }}-database"
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+    component: database
+spec:
+  replicas: 1
+  serviceName: "{{ template "gitlab.fullname" . }}-database"
+  selector:
+    matchLabels:
+{{ include "gitlab.matchLabels" . | indent 6 }}
+      component: database
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+{{ include "gitlab.labels" . | indent 8 }}
+        component: database
+    spec:
+      containers:
+      - env:
+        - name: DB_EXTENSION
+          value: pg_trgm
+        - name: DB_NAME
+          value: {{ .Values.database.postgresDatabase }}
+        - name: DB_USER
+          value: {{ .Values.database.postgresUser }}          
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: "{{ template "gitlab.fullname" . }}"
+              key: db-password
+        image: {{ template "database.image" .}}
+        name: postgresql
+        resources:
+{{ toYaml .Values.database.resources | indent 10 }}        
+        volumeMounts:
+        - mountPath: /var/lib/postgresql
+          name: postgresql-data
+      restartPolicy: Always
+      volumes:
+      - name: postgresql-data
+{{ include "database.volume" . | indent 8 }}
+{{ include "database.nodeSelector" . | indent 6 }}
+    {{- with .Values.database.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.database.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- end }}

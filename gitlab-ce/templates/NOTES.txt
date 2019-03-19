@@ -1,0 +1,6 @@
+Your gitlab URL is {{ template "gitlab.externalURL" . }}, login it with the account:
+
+username: root
+password: {{ .Values.gitlabRootPassword }}
+
+Reset it as soon as possible.

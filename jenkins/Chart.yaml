@@ -1,0 +1,8 @@
+name: jenkins
+home: https://jenkins.io/
+version: v0.1.19
+appVersion: 2.150.3
+description: Open source continuous integration server. It supports multiple SCM tools
+  including CVS, Subversion and Git. It can execute Apache Ant and Apache Maven-based
+  projects as well as arbitrary scripts. Specially talored for Alauda products.
+icon: https://wiki.jenkins-ci.org/download/attachments/2916393/logo.png

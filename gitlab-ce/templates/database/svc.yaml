@@ -1,0 +1,14 @@
+{{- if .Values.database.useInternal -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ template "gitlab.fullname" . }}-database"
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+spec:
+  ports:
+    - port: 5432
+  selector:
+{{ include "gitlab.matchLabels" . | indent 4 }}
+    component: database
+{{- end -}}

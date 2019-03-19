@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "gitlab.fullname" . }}
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+spec:
+  type: NodePort
+  ports:
+  - name: ssh
+    port: {{ .Values.service.ports.ssh.port | int }}
+    targetPort: ssh
+    nodePort: {{ .Values.service.ports.ssh.nodePort | int }}
+  - name: http
+    port: {{ .Values.service.ports.http.port | int }}
+    targetPort: http
+    nodePort: {{ .Values.service.ports.http.nodePort | int }}
+  - name: https
+    port: {{ .Values.service.ports.https.port | int }}
+    targetPort: https
+    nodePort: {{ .Values.service.ports.https.nodePort | int }}
+  selector:
+{{ include "gitlab.matchLabels" . | indent 4 }}

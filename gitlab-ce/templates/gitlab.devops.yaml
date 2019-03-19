@@ -1,0 +1,13 @@
+{{- if .Values.AlaudaACP.Enabled }}
+apiVersion: devops.alauda.io/v1alpha1
+kind: CodeRepoService
+metadata:
+  name: {{ .Values.AlaudaACP.Name }}
+  labels:
+{{ include "gitlab.labels" . | indent 4 }}
+spec:
+  public: false
+  type: Gitlab
+  http:
+    host: {{ template "gitlab.externalURL" . }}
+{{- end }}

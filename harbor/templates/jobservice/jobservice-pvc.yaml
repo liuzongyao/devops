@@ -1,0 +1,19 @@
+{{- if and .Values.jobservice.persistence.enabled (not .Values.jobservice.persistence.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "harbor.fullname" . }}-jobservice
+  labels:
+{{ include "harbor.labels" . | indent 4 }}
+    component: jobservice
+  annotations:
+  {{- if .Values.jobservice.persistence.storageClass }}
+    volume.beta.kubernetes.io/storage-class: {{ .Values.jobservice.persistence.storageClass | quote }}
+  {{- end }}
+spec:
+  accessModes: 
+    - {{ .Values.jobservice.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.jobservice.persistence.size }}
+{{- end }}

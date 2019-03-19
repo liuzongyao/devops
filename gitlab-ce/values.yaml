@@ -1,0 +1,162 @@
+global:
+  registry:
+    address: index.alauda.cn
+  images:
+    portal:
+      repository: alaudak8s/gitlab-ce
+      tag: "11.4.0"
+    database:
+      repository: alaudak8s/postgresql
+      tag: "10"
+    redis:
+      repository: alaudak8s/redis
+      tag: "4.0.9-1"
+
+persistence:
+  enabled: &persistenceEnabled false
+  existingClaim: &existingClaim ""
+  storageClass: &storageClass ""
+  accessMode: &accessMode ReadWriteOnce
+  size: &size 1Gi
+  host:
+    nodeName: &nodeName ""
+nodeSelector: &nodeSelector {}
+
+AlaudaACP:
+  Enabled: false
+  Name: gitlab-enterprise
+
+gitlabHost: 119.28.187.185
+gitlabRootPassword: Gitlab12345
+
+## Ingress configuration options
+##
+ingress:
+  enabled: false
+  hosts:
+    portal: your-domain.com
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    kubernetes.io/ingress.class: nginx
+  tls:
+    enabled: false
+    # Fill in the empty string if you want to use your own TLS secret
+    secretName: &tls_secretName ""
+
+# The secret key used for encryption. Must be a string of 16 chars.
+secretKey: not-a-secure-key
+serviceAccount: gitlab-ce
+
+service:
+  name: gitlab-ce
+  # ClusterIP or NodePort
+  type: ClusterIP
+  ports:
+    http:
+      port: 80
+      # set it when the type of service is "NodePort". 
+      # The range of valid ports is 30000-32767
+      nodePort: 31101
+    ssh:
+      port: 22
+      # set it when the type of service is "NodePort"
+      # The range of valid ports is 30000-32767
+      nodePort: 31102
+    https:
+      port: 443
+      # set it when the type of service is "NodePort"
+      # The range of valid ports is 30000-32767
+      nodePort: 31103
+
+portal:
+  debug: false
+  # resources:
+  #   requests:
+  #     cpu: 512m
+  #     memory: 1Gi
+  affinity: {}
+  tolerations: []
+  nodeSelector: *nodeSelector
+  persistence:
+      enabled: *persistenceEnabled
+      existingClaim: *existingClaim
+      storageClass: *storageClass
+      accessMode: *accessMode
+      size: 10Gi
+    ## host is used only when persistence.enabled=false
+    ## this is useful to persist data without a StorageClass or PVC available
+    ## nodeName and path MUST all be set      
+      host:
+        nodeName: *nodeName
+        path: /tmp/gltlab-ce/gitlab
+
+database:
+  # if external Postgresql is used, set "useInternal" to "false"
+  # and fill the connection informations in "external" section.
+  # or the internal Postgresql will be used
+  useInternal: true
+  postgresUser: gitlab
+  postgresPassword: gitlab
+  postgresDatabase: gitlab
+  postgresInitdbArgs:
+  # resources:
+  #   requests:
+  #     cpu: 512m
+  #     memory: 1Gi
+  affinity: {}
+  tolerations: []
+  nodeSelector: *nodeSelector 
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: 10Gi
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/jobservice
+  external:
+    host: "192.168.0.10"
+    port: "5432"
+    postgresUser: gitlab
+    postgresPassword: gitlab
+    postgresDatabase: gitlab
+
+redis:
+  # if external Redis is used, set "useInternal" to "false"
+  # and fill the connection informations in "external" section.
+  # or the internal Redis will be used
+  useInternal: true
+  port: "6379"
+  usePassword: false
+  password: "redis"
+  # resources:
+  #  requests:
+  #    memory: 256Mi
+  #    cpu: 100m
+  affinity: {}
+  tolerations: []
+  nodeSelector: *nodeSelector
+  persistence:
+    enabled: *persistenceEnabled
+    existingClaim: *existingClaim
+    storageClass: *storageClass
+    accessMode: *accessMode
+    size: *size
+  ## host is used only when persistence.enabled=false
+  ## this is useful to persist data without a StorageClass or PVC available
+  ## nodeName and path MUST all be set      
+    host:
+      nodeName: *nodeName
+      path: /tmp/harbor/clair
+  external:
+    host: "192.168.0.2"
+    port: "6379"
+    usePassword: false
+    password: "redis"

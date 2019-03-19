@@ -1,0 +1,105 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "harbor.core" . }}
+  labels:
+{{ include "harbor.labels" . | indent 4 }}
+    component: core
+spec:
+  replicas: {{ .Values.core.replicas }}
+  selector:
+    matchLabels:
+{{ include "harbor.matchLabels" . | indent 6 }}
+      component: core  
+  template:
+    metadata:
+      labels:
+{{ include "harbor.matchLabels" . | indent 8 }}
+        component: core
+    spec:
+      containers:
+      - name: core
+        image: {{ template "core.image" . }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+          - name: CORE_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "harbor.core" . }}
+                key: secret
+          - name: JOBSERVICE_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{ template "harbor.fullname" . }}-jobservice"
+                key: secret
+          - name: _REDIS_URL
+            value: {{ template "harbor.redisForCore" . }}
+          - name: _REDIS_URL_REG
+            value: {{ template "harbor.redisForGC" . }}
+          - name: GODEBUG
+            value: netdns=cgo
+          - name: LOG_LEVEL
+            value: debug
+          - name: CONFIG_PATH
+            value: /etc/core/app.conf
+          - name: SYNC_REGISTRY
+            value: "false"
+          - name: ADMINSERVER_URL
+            value: "http://{{ template "harbor.fullname" . }}-adminserver"
+          - name: CHART_CACHE_DRIVER
+            value: "redis"
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: /etc/core/app.conf
+          subPath: app.conf
+        - name: secret-key
+          mountPath: /etc/core/key
+          subPath: key
+        - name: token-service-private-key
+          mountPath: /etc/core/private_key.pem
+          subPath: tokenServicePrivateKey
+        {{- if eq (include "harbor.autoGenCert" .) "true" }}
+        - name: ca-download
+          mountPath: /etc/core/ca/ca.crt
+          subPath: ca.crt
+        {{- end }}
+        - name: psc
+          mountPath: /etc/core/token
+      volumes:
+      - name: config
+        configMap:
+          name: {{ template "harbor.core" . }}
+      - name: secret-key
+        secret:
+          secretName: {{ template "harbor.core" . }}
+          items:
+            - key: secretKey
+              path: key
+      - name: token-service-private-key
+        secret:
+          secretName: {{ template "harbor.core" . }}
+      {{- if eq (include "harbor.autoGenCert" .) "true" }}
+      - name: ca-download
+        secret:
+        {{- if eq (include "harbor.autoGenCertForIngress" .) "true" }}
+          secretName: "{{ template "harbor.fullname" . }}-ingress"
+        {{- else }}
+          secretName: {{ template "harbor.nginx" . }}
+        {{- end }}
+          items:
+            - key: ca.crt
+              path: ca.crt
+      {{- end }}
+      - name: psc
+        emptyDir: {}
+{{ include "core.nodeSelector" . | indent 6 }}
+    {{- with .Values.core.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.core.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
